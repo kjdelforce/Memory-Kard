@@ -127,7 +127,7 @@ export default function Collection() {
                 <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Filter your shelf…" className="ps-input pl-9 h-10 min-h-0 py-1.5 text-sm w-44 sm:w-56" data-testid="collection-search" />
               </div>
               <select value={sort} onChange={(e) => setSort(e.target.value)} className="ps-pill text-xs cursor-pointer" data-testid="collection-sort">
-                {SORT_OPTIONS.map((s) => <option key={s.key} value={s.key} className="bg-ps-dark">Sort: {s.label}</option>)}
+                {SORT_OPTIONS.map((s) => <option key={s.key} value={s.key}>{`Sort: ${s.label}`}</option>)}
               </select>
               <div className="flex rounded-lg overflow-hidden border border-ps-blue-light/30">
                 <button onClick={() => setView('grid')} className={`p-2 ${view === 'grid' ? 'bg-ps-blue-light/20 text-ps-white' : 'text-ps-white/55'}`} data-testid="collection-view-grid"><Grid3x3 size={16} /></button>
