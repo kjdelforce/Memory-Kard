@@ -5,7 +5,9 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { STATUSES, PS_PLATFORMS } from '@/constants/ps';
 
-export default function AddToCollectionModal({ open, onClose, game, mode = 'collection', defaultPlatform, onSaved }) {
+export default function AddToCollectionModal({ open, isOpen, onClose, game, mode = 'collection', defaultPlatform, onSaved, userId }) {
+  // Support both `open` and `isOpen` prop names for spec compatibility.
+  const visible = typeof isOpen === 'boolean' ? isOpen : !!open;
   const initialPlatform = defaultPlatform || (game?.platforms?.[0]?.name) || 'PS5';
   const [platform, setPlatform] = useState(initialPlatform);
   const [status, setStatus] = useState('owned');
@@ -14,17 +16,55 @@ export default function AddToCollectionModal({ open, onClose, game, mode = 'coll
   const [hours, setHours] = useState(0);
   const [priority, setPriority] = useState('medium');
   const [submitting, setSubmitting] = useState(false);
+  const [existingEntry, setExistingEntry] = useState(null); // existing collection entry for {game.id, platform}
+  const [checkingExisting, setCheckingExisting] = useState(false);
 
+  // Reset core fields when modal opens
   useEffect(() => {
-    if (open) {
+    if (visible) {
       setPlatform(defaultPlatform || (game?.platforms?.[0]?.name) || 'PS5');
       setStatus(mode === 'wishlist' ? 'wishlist' : 'owned');
       setRating(7);
       setNotes('');
       setHours(0);
       setPriority('medium');
+      setExistingEntry(null);
     }
-  }, [open, game, mode, defaultPlatform]);
+  }, [visible, game, mode, defaultPlatform]);
+
+  // Look up existing collection entry whenever modal opens or platform changes
+  useEffect(() => {
+    if (!visible || !game?.id || mode !== 'collection') {
+      setExistingEntry(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      setCheckingExisting(true);
+      try {
+        const { data } = await api.get('/collection');
+        if (cancelled) return;
+        const match = (data || []).find(
+          (e) => e.igdb_game_id === game.id && e.platform === platform,
+        );
+        if (match) {
+          setExistingEntry(match);
+          // Pre-fill from existing entry so user can update it
+          setStatus(match.status || 'owned');
+          setRating(match.personal_rating || 7);
+          setNotes(match.notes || '');
+          setHours(match.play_time_hours || 0);
+        } else {
+          setExistingEntry(null);
+        }
+      } catch (_e) {
+        setExistingEntry(null);
+      } finally {
+        if (!cancelled) setCheckingExisting(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [visible, game?.id, platform, mode]);
 
   const availablePlatforms = game?.platforms?.length
     ? game.platforms.map((p) => p.name)
@@ -57,7 +97,7 @@ export default function AddToCollectionModal({ open, onClose, game, mode = 'coll
           notes,
           play_time_hours: Number(hours) || 0,
         });
-        toast.success(`Added to your shelf (${status})`);
+        toast.success(existingEntry ? `Updated on your shelf (${status})` : `Added to your shelf (${status})`);
       }
       onSaved?.();
       onClose?.();
@@ -70,7 +110,7 @@ export default function AddToCollectionModal({ open, onClose, game, mode = 'coll
 
   return (
     <AnimatePresence>
-      {open && game && (
+      {visible && game && (
         <motion.div
           className="fixed inset-0 z-[100] grid place-items-end sm:place-items-center bg-black/55 backdrop-blur-sm"
           initial={{ opacity: 0 }}
@@ -93,7 +133,15 @@ export default function AddToCollectionModal({ open, onClose, game, mode = 'coll
                 {game.cover_url && <img src={game.cover_url} alt="" className="w-full h-full object-cover" />}
               </div>
               <div className="flex-1 min-w-0">
-                <div className="text-[11px] uppercase tracking-[0.18em] text-ps-white/55">{mode === 'wishlist' ? 'Add to Wishlist' : 'Add to Collection'}</div>
+                <div className="text-[11px] uppercase tracking-[0.18em] text-ps-white/55 flex items-center gap-2">
+                  {mode === 'wishlist' ? 'Add to Wishlist' : (existingEntry ? 'Update on Shelf' : 'Add to Collection')}
+                  {checkingExisting && <span className="text-ps-white/40 normal-case tracking-normal">· checking…</span>}
+                  {existingEntry && (
+                    <span className="num-display text-[9px] tracking-[0.12em] px-1.5 py-0.5 rounded border border-status-completed/55 text-status-completed">
+                      ALREADY ON SHELF
+                    </span>
+                  )}
+                </div>
                 <div className="heading-display text-xl font-bold leading-tight truncate">{game.name}</div>
                 <div className="text-xs text-ps-white/55 mt-0.5">{game.release_year || ''}</div>
               </div>
@@ -200,7 +248,7 @@ export default function AddToCollectionModal({ open, onClose, game, mode = 'coll
               <div className="flex gap-2 justify-end pt-1">
                 <button onClick={onClose} className="ps-button-ghost" data-testid="add-cancel-button">Cancel</button>
                 <button onClick={submit} disabled={submitting} className="ps-button" data-testid="add-save-button">
-                  <Save size={16} /> {submitting ? 'Saving…' : 'Add to Shelf'}
+                  <Save size={16} /> {submitting ? 'Saving…' : (mode === 'collection' && existingEntry ? 'Update' : 'Add to Shelf')}
                 </button>
               </div>
             </div>
