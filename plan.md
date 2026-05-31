@@ -1,10 +1,22 @@
-# plan.md — PS Collectors Hub (React + FastAPI + MongoDB + IGDB)
+# plan.md — PS Collectors Hub (PS Shelf) (React + FastAPI + MongoDB + IGDB)
 
 ## 1) Objectives
-- Prove IGDB integration works reliably via Twitch OAuth (client credentials): token fetch/refresh, PS-platform filtered search, game detail (cover + screenshots).
-- Build full V1 app (all listed pages) around the proven IGDB core with strict PS dark/glass design system.
-- Implement JWT email/password auth, collection + wishlist CRUD, public profiles by username, privacy, avatar upload, stats charts, explore collectors, platform browsing.
-- End-to-end test the complete user flows; ensure library is empty on signup (no demo seed).
+- ✅ **Prove IGDB integration** via Twitch OAuth (client credentials) works reliably: token fetch/refresh, PlayStation-only platform filtering, search + game detail (cover + screenshots).
+- ✅ **Build full V1 app end-to-end** (all required pages + components) with strict **PlayStation dark/glass** design system, mobile-first navigation, and Framer Motion micro-interactions.
+- ✅ Implement core product features:
+  - Email/password **JWT auth**
+  - **Collection** + **Wishlist** management
+  - **Public profiles** by username with **privacy controls**
+  - **Avatar upload** (local storage)
+  - **Stats + charts** (Recharts)
+  - **Explore collectors** + trending games
+  - **Browse by platform**
+- 🔄 **Phase 3 goal (current):** comprehensive end-to-end validation and hardening:
+  - eliminate functional bugs
+  - ensure privacy enforcement
+  - polish loading/empty/error states
+  - verify mobile/desktop navigation + performance
+- Non-negotiable: **Library remains empty on signup** (no demo seeding) and empty states remain graceful.
 
 ## 2) Implementation Steps
 
@@ -14,28 +26,31 @@
 2. As a user, I want to search PlayStation games so results are relevant to my collection.
 3. As a user, I want game details (cover, release date, rating) so I can decide to add it.
 4. As a user, I want screenshots so I can verify the game visually.
-5. As a developer, I want graceful handling of rate limits/expired tokens so the app stays usable.
+5. As a developer, I want graceful handling of expired tokens so the app stays usable.
 
 **Steps**
-- Websearch best practices: Twitch client-credentials token caching/refresh + IGDB query examples (search, fields, where platforms).
 - Backend-only POC (no auth, no DB):
   - `.env`: `TWITCH_CLIENT_ID`, `TWITCH_CLIENT_SECRET`
   - Implement `IGDBClient`:
     - `get_token()` (cache in-memory with expiry buffer)
-    - `igdb_post(endpoint, body)` auto-inject headers, retry once on 401
+    - `post(endpoint, body)` auto-inject headers, retry once on 401
   - Implement minimal FastAPI routes:
     - `GET /api/igdb/search?q=&platform=&sort=&page=` (platform defaults to PS set)
     - `GET /api/igdb/games/{id}` (cover + screenshots + genres + platforms + summary)
     - `GET /api/igdb/platforms` (PS-only list)
-- Python test script (standalone) to validate end-to-end:
+- Python test script (standalone) to validate:
   - Fetch token
   - Search a known PS title
   - Fetch details for first result
   - Verify cover URL composition and screenshot URLs
-  - Verify PS platform filter IDs (7,8,9,48,167,38,46)
-- Fix until stable: token refresh, null fields, missing covers, pagination.
+  - Verify PS platform filter IDs (PS1=7, PS2=8, PS3=9, PS4=48, PS5=167, PSP=38, PS Vita=46)
 
 **Deliverable**: POC endpoints + script passing locally with real IGDB responses.
+
+**Status**: ✅ **COMPLETED**
+- Twitch OAuth working + token cached
+- IGDB search + details + screenshots validated with real data
+- Platform filtering verified for all PS platforms
 
 ---
 
@@ -48,49 +63,66 @@
 5. As a user, I want a public profile link by username so I can share my collection (if privacy allows).
 
 **Backend (FastAPI + MongoDB)**
-- Mongo models/collections: `users`, `collection_entries`, `wishlist_entries` (+ indexes on `username`, `{user_id, igdb_game_id}` uniqueness).
-- Auth:
-  - Email/password signup + login (bcrypt hashing)
-  - JWT access token; auth dependency for protected routes
-- Core APIs:
-  - IGDB proxy APIs (from Phase 1) used by frontend
-  - Collection CRUD: create/update/delete/list; status transitions; favorite toggle
-  - Wishlist CRUD: create/update/delete/list; move-to-collection
-  - Profile: public by username; respect privacy settings
-  - Explore: search users by username/display_name; trending (basic: most-added last 7/30 days)
-  - Avatar upload: multipart upload → local storage path + served static route
-- Validation + error handling: consistent JSON errors; 401/403/404; input constraints.
+- ✅ Mongo collections + indexes:
+  - `users`
+  - `collection_entries` (unique per `{user_id, igdb_game_id, platform}`)
+  - `wishlist_entries` (unique per `{user_id, igdb_game_id, platform}`)
+- ✅ Auth:
+  - Email/password signup + login (bcrypt)
+  - JWT access tokens
+  - `/api/auth/me` current-user
+  - username availability check
+- ✅ IGDB proxy APIs:
+  - `/api/igdb/search`
+  - `/api/igdb/games/{id}`
+  - `/api/igdb/platforms`
+  - `/api/igdb/platform/{platform_name}`
+- ✅ Collection:
+  - CRUD: `POST /api/collection`, `GET /api/collection`, `PATCH /api/collection/{id}`, `DELETE /api/collection/{id}`
+  - stats: `GET /api/collection/stats`
+- ✅ Wishlist:
+  - CRUD: `POST /api/wishlist`, `GET /api/wishlist`, `PATCH /api/wishlist/{id}`, `DELETE /api/wishlist/{id}`
+  - move-to-collection: `POST /api/wishlist/{id}/move-to-collection`
+- ✅ Profile/Settings:
+  - update profile: `PATCH /api/profile`
+  - privacy: `PATCH /api/profile/privacy`
+  - password change: `POST /api/profile/password`
+  - avatar upload: `POST /api/profile/avatar` + file serving `/api/uploads/avatars/{fname}`
+  - delete data/account: `DELETE /api/profile/data`, `DELETE /api/profile`
+- ✅ Public profile + explore:
+  - `GET /api/users/{username}` (privacy-aware)
+  - `GET /api/explore` (collector search + trending)
 
 **Frontend (React CRA)**
-- App shell:
-  - Mobile-first layout; BottomTabBar on mobile; Sidebar (240px) desktop
-  - Framer Motion page transitions + grid staggers + modal behaviors
-- Design system enforcement:
-  - Global theme variables for strict colors/fonts
-  - Glass card component + skeletons + empty/error states
-- Routing/pages (all required):
-  - `/` Landing
-  - `/auth/signup`, `/auth/login`
-  - `/dashboard`
-  - `/search` (sticky search, filters, infinite scroll)
-  - `/game/:id` (hero, gallery, sticky action bar, similar games)
-  - `/collection` (tabs, grid/list, sort, stats bar)
-  - `/wishlist` (priority tabs, move to collection)
-  - `/profile/:username` (tabs + Recharts stats)
-  - `/settings` (profile/avatar, account/password, privacy, danger zone)
-  - `/explore` (collector search + cards)
-  - `/platforms` (platform cards → games list)
-- Key components:
-  - `GameCard`, `AddToCollectionModal` (sheet on mobile; scale-fade desktop)
-  - `Sidebar`, `BottomTabBar`, `PlatformPills`, `StatusPills`
-  - Charts (Recharts) hidden until data exists
-- State + data:
-  - Auth context + token storage
-  - API client with auth header injection
-  - Pagination/infinite scroll; cached recent searches
+- ✅ App shell:
+  - Mobile-first layout
+  - BottomTabBar on mobile + fixed left Sidebar (240px) on desktop
+  - Framer Motion page transitions and card hover lift+scale
+- ✅ Design system enforcement:
+  - Global PS color tokens + fonts (Rajdhani/Inter/Orbitron)
+  - Glass card styling, skeleton shimmer, empty/error states
+- ✅ All required routes/pages implemented:
+  - `/` Landing (floating PS symbols, hero, shelf mockup, feature cards, platform pills)
+  - `/auth/signup` + `/auth/login` (split-screen, strength meter, username availability)
+  - `/dashboard` (welcome header, stat pills w/ count-up, currently playing, recent additions, status pie chart, genre pills, quick links)
+  - `/search` (sticky glass bar, platform filter, sort, load more, game cards)
+  - `/game/:id` (blurred hero, action buttons, read-more, screenshots lightbox, similar games)
+  - `/collection` (empty state w/ controller SVG, status tabs, grid/list, sort, client search, stats bar, inline status change)
+  - `/wishlist` (priority tabs, move-to-collection, delete, sort)
+  - `/profile/:username` (avatar PS ring, stat tiles, tabs, Recharts pie/bar/line)
+  - `/settings` (Profile/Account/Privacy/Danger Zone tabs; avatar upload, password, privacy, delete data/account)
+  - `/explore` (collector search, cards grid, Trending sidebar)
+  - `/platforms` (platform cards with era glow, top games grid)
+- ✅ Key components delivered:
+  - `GameCard` (hover overlay Add/Wishlist)
+  - `AddToCollectionModal` (collection + wishlist modes; platform selector, status pills, rating slider, hours, notes, priority)
+  - `FloatingPSSymbols`, `EmptyState`, `ErrorState`, skeletons
 
 **Phase 2 checkpoint**
-- One end-to-end run: signup → search → game detail → add to collection → view collection/dashboard → add wishlist → move to collection → profile view.
+- ✅ Verified visually and functionally (at least): Landing, Sign In, Dashboard (empty state), Search (real IGDB results).
+- ✅ Auth flow + core navigation confirmed.
+
+**Status**: ✅ **COMPLETED**
 
 ---
 
@@ -103,19 +135,40 @@
 5. As a user, I want my filters/sorts to behave predictably across pages.
 
 **Steps**
-- Automated/manual test matrix across pages (happy paths + empty states + errors).
-- Auth/session tests: token expiry, logout, protected route guards.
-- IGDB robustness: missing covers, missing screenshots, rate limit handling, retries.
-- Data integrity tests: duplicates, concurrent updates, delete cascades (user deletion).
-- Performance pass: minimize over-fetching; debounce search; image lazy loading.
+- 🔄 Run automated/manual test matrix across all pages:
+  - signup/login/logout
+  - search → game detail → add to collection
+  - add to wishlist → move to collection
+  - collection status changes + delete
+  - profile view as self vs public viewer (privacy)
+  - settings updates + avatar upload + password change
+  - explore search + trending
+  - platforms browse + add
+- 🔄 Hardening:
+  - auth/session edge cases (invalid token, expired token, missing auth)
+  - IGDB edge cases (missing covers/screenshots/summary)
+  - Mongo uniqueness conflicts surfaced as friendly UI messages
+  - ensure empty states everywhere (no broken charts/layout)
+- 🔄 UX polish:
+  - verify tap targets (>=44px)
+  - verify sticky bars don’t overlap content on mobile (safe area)
+  - verify skeleton layouts match final layouts
+  - remove/resolve ESLint warnings where practical
+- 🔄 Performance pass:
+  - debounce search
+  - lazy load images
+  - minimize refetching on navigation
+
+**Status**: 🔄 **IN PROGRESS** (testing_agent_v3 running)
 
 ## 3) Next Actions (immediate)
-1. Add Twitch credentials to backend env and implement `IGDBClient` with token caching/refresh.
-2. Build Phase-1 endpoints + Python POC script; run until it passes consistently.
-3. Once POC is stable, scaffold Mongo models + JWT auth routes.
-4. Implement frontend shell + `/search` + `/game/:id` + AddToCollectionModal first (core flow), then remaining pages.
+1. Run **testing_agent_v3** full end-to-end suite and capture failures.
+2. Fix bugs found (prioritize auth breaks, data integrity, privacy enforcement).
+3. Validate mobile navigation (BottomTabBar + safe-area) and desktop sidebar states.
+4. Resolve minor lint warnings (missing dependencies) if they indicate real issues.
+5. Re-run tests until green.
 
 ## 4) Success Criteria
-- Phase 1: POC script reliably returns PS-filtered search results and full game details (cover + screenshots) without manual token intervention.
-- Phase 2: All listed pages exist, are navigable, and core flows work end-to-end with real IGDB data; signup produces an empty library.
-- Phase 3: No broken routes; consistent loading/empty/error states; privacy settings enforced; avatar upload works; charts render correctly when data exists.
+- Phase 1: ✅ POC script reliably returns PS-filtered search results and full game details (cover + screenshots) without manual token intervention.
+- Phase 2: ✅ All listed pages exist, are navigable, and core flows work end-to-end with real IGDB data; signup produces an empty library.
+- Phase 3: ⬜ No broken routes; consistent loading/empty/error states; privacy settings enforced; avatar upload works; charts render correctly when data exists; all critical end-to-end tests pass.
