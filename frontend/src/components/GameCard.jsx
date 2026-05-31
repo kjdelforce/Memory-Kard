@@ -3,6 +3,17 @@ import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { Star, Plus, Heart } from 'lucide-react';
 
+const GLASS_STYLE = {
+  background: 'rgba(0,13,26,0.7)',
+  backdropFilter: 'blur(12px)',
+  WebkitBackdropFilter: 'blur(12px)',
+  border: '1px solid rgba(0,112,209,0.2)',
+  borderRadius: '16px',
+  boxShadow: '0 4px 24px rgba(0,6,15,0.6), inset 0 1px 0 rgba(255,255,255,0.05)',
+};
+
+const HOVER_TRANSITION = { type: 'spring', stiffness: 300, damping: 20 };
+
 function PlatformBadge({ name }) {
   return (
     <span className="num-display text-[9px] uppercase px-1.5 py-0.5 rounded-md border border-ps-blue-light/35 bg-ps-dark/60 text-ps-white/80">
@@ -16,12 +27,12 @@ export default function GameCard({ game, onAdd, onWishlist, index = 0 }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.28, delay: Math.min(index * 0.04, 0.4), ease: [0.22, 1, 0.36, 1] }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
       whileHover={{ y: -4, scale: 1.02 }}
+      transition={HOVER_TRANSITION}
       data-testid="game-card"
-      className="glass group relative overflow-hidden hover:shadow-glow"
-      style={{ transition: 'box-shadow 0.2s ease' }}
+      className="group relative overflow-hidden"
+      style={GLASS_STYLE}
     >
       <Link to={`/game/${game.id}`} data-testid="game-card-open-link" className="block">
         <div className="aspect-[3/4] bg-ps-dark relative overflow-hidden rounded-t-[16px]">
@@ -61,7 +72,7 @@ export default function GameCard({ game, onAdd, onWishlist, index = 0 }) {
           data-testid="game-card-add-button"
           className="ps-button flex-1 text-xs h-9 min-h-0 px-3"
         >
-          <Plus size={14} /> Add
+          <Plus size={14} /> Add to Collection
         </button>
         <button
           type="button"
@@ -69,7 +80,7 @@ export default function GameCard({ game, onAdd, onWishlist, index = 0 }) {
           data-testid="game-card-wishlist-button"
           className="ps-button-ghost text-xs h-9 min-h-0 px-3"
         >
-          <Heart size={14} />
+          <Heart size={14} /> Wishlist
         </button>
       </div>
     </motion.div>
