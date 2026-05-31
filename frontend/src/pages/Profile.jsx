@@ -145,17 +145,28 @@ export default function Profile() {
             </ChartCard>
 
             <ChartCard title="By Status" testid="profile-chart-status">
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={stats.status} margin={{ top: 10, right: 10, bottom: 10, left: -10 }}>
-                  <CartesianGrid stroke="rgba(240,244,255,0.06)" />
-                  <XAxis dataKey="name" tick={{ fill: 'rgba(240,244,255,0.6)', fontSize: 11 }} />
-                  <YAxis tick={{ fill: 'rgba(240,244,255,0.55)', fontSize: 11 }} allowDecimals={false} />
-                  <Tooltip contentStyle={tipStyle} />
-                  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
-                    {stats.status.map((s, i) => <Cell key={i} fill={STATUS_COLORS[s.name]} />)}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
+              {(() => {
+                const STATUS_LABELS = { playing: 'Playing', completed: 'Completed', owned: 'Owned', wishlist: 'Wishlist', dropped: 'Dropped' };
+                const pieData = (stats.status || [])
+                  .filter((s) => (s.count || 0) > 0)
+                  .map((s) => ({ name: STATUS_LABELS[s.name] || s.name, key: s.name, value: s.count, color: STATUS_COLORS[s.name] }));
+                if (pieData.length === 0) {
+                  return <div className="h-[260px] grid place-items-center text-sm text-ps-white/55">No status data yet.</div>;
+                }
+                return (
+                  <>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <PieChart>
+                        <Pie data={pieData} dataKey="value" nameKey="name" innerRadius={50} outerRadius={90} paddingAngle={3} strokeWidth={0}>
+                          {pieData.map((d, i) => <Cell key={i} fill={d.color} />)}
+                        </Pie>
+                        <Tooltip contentStyle={tipStyle} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <Legend items={pieData.map((d) => ({ name: d.name, value: d.value, color: d.color }))} />
+                  </>
+                );
+              })()}
             </ChartCard>
 
             <ChartCard title="Monthly Additions" className="lg:col-span-2" testid="profile-chart-monthly">
