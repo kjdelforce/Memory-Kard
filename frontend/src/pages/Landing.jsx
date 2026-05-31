@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Gamepad2, Database, BarChart3, Globe, ArrowRight } from 'lucide-react';
@@ -6,12 +6,71 @@ import FloatingPSSymbols from '@/components/FloatingPSSymbols';
 import CountUp from '@/components/CountUp';
 import { PS_PLATFORMS } from '@/constants/ps';
 
+const PS_SYMBOLS = [
+  { char: '✕', color: '#0070D1' },
+  { char: '◯', color: '#E8003D' },
+  { char: '△', color: '#00B050' },
+  { char: '▢', color: '#FF69B4' },
+];
+
+function HeroSymbols() {
+  const items = useMemo(() => {
+    const rng = (seed) => {
+      // deterministic PRNG so positions don't reshuffle on re-render
+      let x = Math.sin(seed) * 10000;
+      return x - Math.floor(x);
+    };
+    return Array.from({ length: 16 }).map((_, i) => {
+      const sym = PS_SYMBOLS[i % 4];
+      const top = rng(i + 1) * 90;            // 0–90%
+      const left = rng(i + 100) * 92;          // 0–92%
+      const size = 24 + rng(i + 200) * 76;     // 24–100px
+      const opacity = 0.03 + rng(i + 300) * 0.03; // 0.03–0.06
+      const duration = 20 + rng(i + 400) * 30; // 20–50s
+      const dx = (rng(i + 500) - 0.5) * 120;   // ±60px
+      const dy = (rng(i + 600) - 0.5) * 120;
+      const rot = (rng(i + 700) - 0.5) * 20;   // ±10deg
+      const delay = rng(i + 800) * 6;          // 0–6s
+      return { sym, top, left, size, opacity, duration, dx, dy, rot, delay, i };
+    });
+  }, []);
+
+  return (
+    <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden="true">
+      {items.map(({ sym, top, left, size, opacity, duration, dx, dy, rot, delay, i }) => (
+        <motion.span
+          key={i}
+          className="absolute select-none"
+          style={{
+            top: `${top}%`,
+            left: `${left}%`,
+            fontFamily: "'Rajdhani', system-ui, sans-serif",
+            fontWeight: 700,
+            fontSize: `${size}px`,
+            color: sym.color,
+            opacity,
+            lineHeight: 1,
+            willChange: 'transform',
+          }}
+          animate={{ x: [0, dx, 0], y: [0, dy, 0], rotate: [0, rot, 0] }}
+          transition={{ duration, delay, repeat: Infinity, repeatType: 'mirror', ease: 'easeInOut' }}
+        >
+          {sym.char}
+        </motion.span>
+      ))}
+    </div>
+  );
+}
+
 export default function Landing() {
   return (
     <div className="min-h-screen relative">
       {/* Hero */}
-      <section className="relative min-h-[100svh] flex flex-col">
-        <FloatingPSSymbols />
+      <section
+        className="relative min-h-[100svh] flex flex-col overflow-hidden"
+        style={{ background: 'linear-gradient(180deg, #00060F 0%, #000D1A 100%)' }}
+      >
+        <HeroSymbols />
         <header className="relative z-10 flex items-center justify-between px-5 sm:px-10 py-5">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-xl bg-ps-blue-light/15 border border-ps-blue-light/40 grid place-items-center text-ps-blue-light font-display font-bold">PS</div>
@@ -34,7 +93,13 @@ export default function Landing() {
               </motion.div>
               <motion.h1
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.05 }}
-                className="heading-display text-5xl sm:text-6xl lg:text-7xl font-bold mt-5 leading-[1.02]"
+                className="heading-display mt-5 leading-[1.02]"
+                style={{
+                  fontFamily: "'Rajdhani', system-ui, sans-serif",
+                  fontWeight: 700,
+                  color: '#FFFFFF',
+                  fontSize: 'clamp(40px, 6vw, 64px)',
+                }}
               >
                 Your PlayStation Collection.
                 <br />
@@ -42,7 +107,14 @@ export default function Landing() {
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}
-                className="text-ps-white/70 mt-6 max-w-xl text-base sm:text-lg"
+                className="mt-6 max-w-xl"
+                style={{
+                  fontFamily: "'Inter', system-ui, sans-serif",
+                  fontWeight: 400,
+                  fontSize: '20px',
+                  lineHeight: 1.55,
+                  color: 'rgba(240,244,255,0.7)',
+                }}
               >
                 Track every disc, every download, every platinum. Built for PlayStation collectors who want a beautiful, shareable shelf.
               </motion.p>
